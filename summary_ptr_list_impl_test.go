@@ -177,7 +177,7 @@ queried: 0.99, found: 9999
 	}
 }
 
-func query(s *Summary, q float64) string {
+func query(s *SummaryPtrListImpl, q float64) string {
 	v := s.Query(q)
 	return fmt.Sprintf("queried: %.02f, found: %d\n", q, v)
 }

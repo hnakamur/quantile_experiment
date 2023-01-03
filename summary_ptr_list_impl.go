@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type Summary struct {
+type SummaryPtrListImpl struct {
 	nrElems    uint64
 	epsilon    float64
 	alloced    uint64
@@ -66,18 +66,18 @@ func ullog2(n uint64) uint64 {
 	return uint64(ullog2Table[(n*0x03f6eaf2cd271461)>>58])
 }
 
-func NewSummary(epsilon float64) *Summary {
-	s := &Summary{}
+func NewSummary(epsilon float64) *SummaryPtrListImpl {
+	s := &SummaryPtrListImpl{}
 	s.Init(epsilon)
 	return s
 }
 
-func (s *Summary) Init(epsilon float64) {
+func (s *SummaryPtrListImpl) Init(epsilon float64) {
 	s.head.listInit()
 	s.epsilon = epsilon
 }
 
-func (s *Summary) sanityCheck() error {
+func (s *SummaryPtrListImpl) sanityCheck() error {
 	nrElems := uint64(0)
 	nrAlloced := uint64(0)
 	cur := s.head.next
@@ -104,7 +104,7 @@ func (s *Summary) sanityCheck() error {
 	return nil
 }
 
-func (s *Summary) allocTuple() *tuple {
+func (s *SummaryPtrListImpl) allocTuple() *tuple {
 	s.alloced++
 	if s.alloced > s.maxAlloced {
 		s.maxAlloced = s.alloced
@@ -118,14 +118,14 @@ func (s *Summary) allocTuple() *tuple {
 	return &tuple{}
 }
 
-func (s *Summary) freeTuple(t *tuple) {
+func (s *SummaryPtrListImpl) freeTuple(t *tuple) {
 	s.alloced--
 
 	t.next = s.freelist
 	s.freelist = t
 }
 
-func (s *Summary) Query(q float64) uint64 {
+func (s *SummaryPtrListImpl) Query(q float64) uint64 {
 	if s.head.listEmpty() {
 		return 0
 	}
@@ -153,7 +153,7 @@ func (s *Summary) Query(q float64) uint64 {
 	}
 }
 
-func (s *Summary) band(delta float64) uint64 {
+func (s *SummaryPtrListImpl) band(delta float64) uint64 {
 	diff := uint64(1 + s.epsilon*float64(s.nrElems)*2 - delta)
 	if diff == 1 {
 		return 0
@@ -162,7 +162,7 @@ func (s *Summary) band(delta float64) uint64 {
 	return ullog2(diff) / ullog2_2
 }
 
-func (s *Summary) compress() {
+func (s *SummaryPtrListImpl) compress() {
 	if s.nrElems < 2 {
 		return
 	}
@@ -187,7 +187,7 @@ func (s *Summary) compress() {
 	}
 }
 
-func (s *Summary) InsertValue(value uint64) {
+func (s *SummaryPtrListImpl) InsertValue(value uint64) {
 	new := s.allocTuple()
 	new.delta = 0
 	new.value = value
@@ -234,7 +234,7 @@ out:
 	}
 }
 
-func (s *Summary) String() string {
+func (s *SummaryPtrListImpl) String() string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "nr_elems: %d, epsilon: %.02f, alloced: %d, overfilled: %.02f, max_alloced: %d\n", s.nrElems, s.epsilon, s.alloced, 2*s.epsilon*float64(s.nrElems),
@@ -256,7 +256,7 @@ func (s *Summary) String() string {
 	return b.String()
 }
 
-func (s *Summary) Combine(s2 *Summary) (*Summary, error) {
+func (s *SummaryPtrListImpl) Combine(s2 *SummaryPtrListImpl) (*SummaryPtrListImpl, error) {
 	if s.epsilon != s2.epsilon {
 		return nil, errors.New("epsilon must be equal")
 	}
