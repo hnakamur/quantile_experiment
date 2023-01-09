@@ -82,17 +82,18 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 }
 
 func (s *Summary) compress() {
+	threshold := int(math.Floor(2 * s.epsilon * float64(s.n)))
 	for i := len(s.tuples) - 2; i >= 1; i-- {
-		for i < len(s.tuples)-1 && s.deleteIfNeeded(i) {
+		for i < len(s.tuples)-1 && s.deleteIfNeeded(i, threshold) {
 		}
 	}
 	log.Printf("compress n=%d, tn=%d", s.n, len(s.tuples))
 }
 
-func (s *Summary) deleteIfNeeded(i int) bool {
+func (s *Summary) deleteIfNeeded(i, threshold int) bool {
 	t1, t2 := &s.tuples[i], &s.tuples[i+1]
-	threshold := int(math.Floor(2 * s.epsilon * float64(s.n)))
 	if t1.delta >= t2.delta && t1.gap+t2.gap+t2.delta < threshold {
+		t2.gap += t1.gap
 		copy(s.tuples[i:], s.tuples[i+1:])
 		s.tuples = s.tuples[:len(s.tuples)-1]
 		return true
