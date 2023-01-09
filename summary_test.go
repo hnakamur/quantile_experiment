@@ -112,8 +112,11 @@ func TestSummary_CompareToNaiveRandom(t *testing.T) {
 			wantRankMin := wantRank - en
 			wantRankMax := wantRank + en
 			if gotRank < wantRankMin || gotRank > wantRankMax {
-				t.Errorf("result mismatch and rank out of range, p=%g, got=%g, want=%g, gotRank=%g, wantRankMin=%g, wantRankMax=%g",
-					p, got, want, gotRank, wantRankMin, wantRankMax)
+				t.Errorf("result mismatch and rank out of range, p=%g, got=%g, want=%g, gotRank=%g, wantRank=%g, wantRankMin=%g, wantRankMax=%g",
+					p, got, want, gotRank, wantRank, wantRankMin, wantRankMax)
+			} else {
+				t.Logf("result mismatch but rank is in range, p=%g, got=%g, want=%g, gotRank=%g, wantRank=%g, wantRankMin=%g, wantRankMax=%g",
+					p, got, want, gotRank, wantRank, wantRankMin, wantRankMax)
 			}
 		}
 	}
