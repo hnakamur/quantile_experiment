@@ -3,6 +3,7 @@ package main
 import (
 	"math/rand"
 	"testing"
+	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -86,10 +87,12 @@ func TestSummary_CompareToNaiveRandom(t *testing.T) {
 	const epsilon = 0.01
 	s := NewSummary(epsilon)
 	sRef := &SummaryNaiveImpl{}
-	// n := 1 + rand.Intn(10)
-	n := 1000
+	seed := time.Now().UnixNano()
+	t.Logf("seed=%d", seed)
+	rnd := rand.New(rand.NewSource(seed))
+	n := 100 + rand.Intn(1000)
 	for i := 0; i < n; i++ {
-		v := rand.Float64()
+		v := rnd.Float64()
 		s.Add(v)
 		sRef.Add(v)
 	}
