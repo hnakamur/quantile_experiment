@@ -104,7 +104,7 @@ func TestSummary_CompareToNaiveRandom(t *testing.T) {
 	s := NewSummary(epsilon)
 	sRef := &SummaryNaiveImpl{}
 	rnd := rand.New(rand.NewSource(seed))
-	n := 100 + rand.Intn(1000)
+	n := 100 + rnd.Intn(1000)
 	for i := 0; i < n; i++ {
 		v := rnd.Float64()
 		s.Add(v)
@@ -142,7 +142,7 @@ func TestSummary_PropertyCompareToNaive(t *testing.T) {
 		s := NewSummary(epsilon)
 		sRef := &SummaryNaiveImpl{}
 		rnd := rand.New(rand.NewSource(seed))
-		n := 100 + rand.Intn(1000)
+		n := 100 + rnd.Intn(1000)
 		for i := 0; i < n; i++ {
 			v := rnd.Float64()
 			s.Add(v)
