@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestSummaryInsertValue(t *testing.T) {
+func TestSummaryPtrListImpl_InsertValue(t *testing.T) {
 	testCases := []struct {
 		input []float64
 		want  string
@@ -51,7 +51,7 @@ queried: 1.00, found: 3835
 		},
 	}
 	for i, tc := range testCases {
-		summary := NewSummary(0.01)
+		summary := NewSummaryPtrListImpl(0.01)
 		for _, v := range tc.input {
 			summary.InsertValue(uint64(v))
 		}
@@ -75,6 +75,58 @@ queried: 1.00, found: 3835
 	}
 }
 
+func TestSummaryPtrListImpl_Rank(t *testing.T) {
+	s := NewSummaryPtrListImpl(0.01)
+	s.InsertValue(1)
+	s.InsertValue(9999)
+	s.InsertValue(5234)
+	s.InsertValue(5234)
+
+	testCases := []struct {
+		value uint64
+		want  uint64
+	}{
+		{value: 1, want: 1},
+		{value: 5234, want: 2},
+		{value: 9999, want: 4},
+	}
+	for _, tc := range testCases {
+		if got, want := s.Rank(tc.value), tc.want; got != want {
+			t.Errorf("rank mismatch, value=%d, got=%d, want=%d", tc.value, got, want)
+		}
+	}
+}
+
+func TestSummaryPtrListImpl_Rank_compareToNaiveImpl(t *testing.T) {
+	s1Inputs, err := readCombineTestData()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const epsilon = 0.001
+	s1 := NewSummaryPtrListImpl(epsilon)
+	s1Naive := &SummaryNaiveImpl{}
+	for _, v := range s1Inputs {
+		s1.InsertValue(v)
+		s1Naive.InsertValue(v)
+	}
+
+	en := uint64(epsilon * float64(s1.nrElems))
+	qs := []float64{.02, .1, .25, .5, .75, .82, .88, .86, .99}
+	for _, q := range qs {
+		v := s1Naive.Query(q)
+		if got, want := s1.Rank(v), s1Naive.Rank(v); got != want {
+			if got < want-en || got > want+en {
+				t.Errorf("rank out of range: q=%.02f, v=%d, got=%d, want=%d, want-en=%d, want+en=%d",
+					q, v, got, want, want-en, want+en)
+			} else {
+				t.Logf("rank mismatch, but inside error range: q=%.02f, v=%d, got=%d, want=%d, want-en=%d, want+en=%d",
+					q, v, got, want, want-en, want+en)
+			}
+		}
+	}
+}
+
 //go:embed combine_test.dat
 var combineTestData []byte
 
@@ -94,18 +146,18 @@ func readCombineTestData() ([]uint64, error) {
 	return values, nil
 }
 
-func TestSummaryCombine(t *testing.T) {
+func TestSummaryPtrListImpl_Combine_compareToCImpl(t *testing.T) {
 	s1Inputs, err := readCombineTestData()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s1 := NewSummary(0.01)
+	s1 := NewSummaryPtrListImpl(0.01)
 	for _, v := range s1Inputs {
 		s1.InsertValue(v)
 	}
 
-	s2 := NewSummary(0.01)
+	s2 := NewSummaryPtrListImpl(0.01)
 	for i := 0; i < 1000; i++ {
 		s2.InsertValue(111)
 	}
@@ -116,17 +168,6 @@ func TestSummaryCombine(t *testing.T) {
 	}
 
 	var b strings.Builder
-	// b.WriteString(s1.String())
-	// b.WriteString(query(s1, .02))
-	// b.WriteString(query(s1, .1))
-	// b.WriteString(query(s1, .25))
-	// b.WriteString(query(s1, .5))
-	// b.WriteString(query(s1, .75))
-	// b.WriteString(query(s1, .82))
-	// b.WriteString(query(s1, .88))
-	// b.WriteString(query(s1, .86))
-	// b.WriteString(query(s1, .99))
-
 	b.WriteString(snew.String())
 	b.WriteString(query(snew, .02))
 	b.WriteString(query(snew, .1))
@@ -138,18 +179,6 @@ func TestSummaryCombine(t *testing.T) {
 	b.WriteString(query(snew, .86))
 	b.WriteString(query(snew, .99))
 	got := b.String()
-	// 	want := `nr_elems: 10000, epsilon: 0.01, alloced: 71, overfilled: 200.00, max_alloced: 101
-	// (v: 124, g: 151.00, d: 1) (v: 294, g: 172.00, d: 12) (v: 364, g: 72.00, d: 0) (v: 540, g: 156.00, d: 0) (v: 709, g: 158.00, d: 1) (v: 867, g: 121.00, d: 53) (v: 925, g: 102.00, d: 6) (v: 1087, g: 181.00, d: 0) (v: 1222, g: 147.00, d: 5) (v: 1393, g: 149.00, d: 0) (v: 1500, g: 106.00, d: 1) (v: 1705, g: 183.00, d: 4) (v: 1873, g: 171.00, d: 0) (v: 2036, g: 163.00, d: 4) (v: 2227, g: 183.00, d: 1) (v: 2362, g: 148.00, d: 0) (v: 2438, g: 50.00, d: 72) (v: 2567, g: 160.00, d: 0) (v: 2754, g: 178.00, d: 0) (v: 2921, g: 153.00, d: 1) (v: 3069, g: 155.00, d: 0) (v: 3181, g: 104.00, d: 13) (v: 3324, g: 149.00, d: 2) (v: 3426, g: 95.00, d: 0) (v: 3584, g: 160.00, d: 0) (v: 3784, g: 176.00, d: 0) (v: 3926, g: 153.00, d: 0) (v: 4067, g: 141.00, d: 0) (v: 4218, g: 99.00, d: 53) (v: 4370, g: 194.00, d: 0) (v: 4567, g: 185.00, d: 1) (v: 4762, g: 173.00, d: 12) (v: 4919, g: 183.00, d: 0) (v: 5115, g: 189.00, d: 10) (v: 5198, g: 97.00, d: 0) (v: 5368, g: 191.00, d: 0) (v: 5499, g: 128.00, d: 1) (v: 5710, g: 168.00, d: 30) (v: 5927, g: 134.00, d: 46) (v: 5928, g: 115.00, d: 2) (v: 6091, g: 163.00, d: 0) (v: 6226, g: 152.00, d: 0) (v: 6353, g: 123.00, d: 17) (v: 6429, g: 93.00, d: 0) (v: 6571, g: 136.00, d: 24) (v: 6649, g: 104.00, d: 0) (v: 6799, g: 149.00, d: 17) (v: 6862, g: 90.00, d: 0) (v: 6996, g: 139.00, d: 0) (v: 7178, g: 165.00, d: 0) (v: 7343, g: 171.00, d: 1) (v: 7488, g: 142.00, d: 1) (v: 7647, g: 168.00, d: 3) (v: 7763, g: 144.00, d: 0) (v: 7856, g: 79.00, d: 1) (v: 8042, g: 173.00, d: 0) (v: 8206, g: 159.00, d: 2) (v: 8335, g: 115.00, d: 0) (v: 8440, g: 80.00, d: 36) (v: 8537, g: 133.00, d: 0) (v: 8690, g: 140.00, d: 0) (v: 8858, g: 169.00, d: 1) (v: 8980, g: 129.00, d: 0) (v: 9170, g: 167.00, d: 17) (v: 9224, g: 77.00, d: 4) (v: 9355, g: 128.00, d: 2) (v: 9430, g: 1.00, d: 129) (v: 9497, g: 155.00, d: 1) (v: 9718, g: 180.00, d: 8) (v: 9802, g: 86.00, d: 0) (v: 9999, g: 197.00, d: 0)
-	// queried: 0.02, found: 124
-	// queried: 0.10, found: 925
-	// queried: 0.25, found: 2567
-	// queried: 0.50, found: 5115
-	// queried: 0.75, found: 7488
-	// queried: 0.82, found: 8206
-	// queried: 0.88, found: 8858
-	// queried: 0.86, found: 8537
-	// queried: 0.99, found: 9999
-	// `
 
 	want := `nr_elems: 11000, epsilon: 0.01, alloced: 71, overfilled: 220.00, max_alloced: 143
 (v: 111, g: 93.00, d: 0) (v: 111, g: 206.00, d: 0) (v: 111, g: 219.00, d: 0) (v: 111, g: 216.00, d: 0) (v: 111, g: 212.00, d: 0) (v: 124, g: 205.00, d: 1) (v: 294, g: 172.00, d: 12) (v: 364, g: 72.00, d: 0) (v: 540, g: 156.00, d: 0) (v: 709, g: 158.00, d: 1) (v: 867, g: 121.00, d: 53) (v: 925, g: 102.00, d: 6) (v: 1087, g: 181.00, d: 0) (v: 1222, g: 147.00, d: 5) (v: 1393, g: 149.00, d: 0) (v: 1500, g: 106.00, d: 1) (v: 1705, g: 183.00, d: 4) (v: 1873, g: 171.00, d: 0) (v: 2036, g: 163.00, d: 4) (v: 2227, g: 183.00, d: 1) (v: 2362, g: 148.00, d: 0) (v: 2567, g: 210.00, d: 0) (v: 2754, g: 178.00, d: 0) (v: 2921, g: 153.00, d: 1) (v: 3069, g: 155.00, d: 0) (v: 3181, g: 104.00, d: 13) (v: 3324, g: 149.00, d: 2) (v: 3426, g: 95.00, d: 0) (v: 3584, g: 160.00, d: 0) (v: 3784, g: 176.00, d: 0) (v: 3926, g: 153.00, d: 0) (v: 4067, g: 141.00, d: 0) (v: 4218, g: 99.00, d: 53) (v: 4370, g: 194.00, d: 0) (v: 4567, g: 185.00, d: 1) (v: 4762, g: 173.00, d: 12) (v: 4919, g: 183.00, d: 0) (v: 5115, g: 189.00, d: 10) (v: 5198, g: 97.00, d: 0) (v: 5368, g: 191.00, d: 0) (v: 5499, g: 128.00, d: 1) (v: 5710, g: 168.00, d: 30) (v: 5927, g: 134.00, d: 46) (v: 5928, g: 115.00, d: 2) (v: 6091, g: 163.00, d: 0) (v: 6226, g: 152.00, d: 0) (v: 6429, g: 216.00, d: 0) (v: 6571, g: 136.00, d: 24) (v: 6649, g: 104.00, d: 0) (v: 6799, g: 149.00, d: 17) (v: 6862, g: 90.00, d: 0) (v: 6996, g: 139.00, d: 0) (v: 7178, g: 165.00, d: 0) (v: 7343, g: 171.00, d: 1) (v: 7488, g: 142.00, d: 1) (v: 7647, g: 168.00, d: 3) (v: 7763, g: 144.00, d: 0) (v: 7856, g: 79.00, d: 1) (v: 8042, g: 173.00, d: 0) (v: 8206, g: 159.00, d: 2) (v: 8335, g: 115.00, d: 0) (v: 8537, g: 213.00, d: 0) (v: 8690, g: 140.00, d: 0) (v: 8858, g: 169.00, d: 1) (v: 8980, g: 129.00, d: 0) (v: 9170, g: 167.00, d: 17) (v: 9355, g: 205.00, d: 2) (v: 9497, g: 156.00, d: 1) (v: 9718, g: 180.00, d: 8) (v: 9802, g: 86.00, d: 0) (v: 9999, g: 197.00, d: 0)
@@ -168,16 +197,59 @@ queried: 0.99, found: 9999
 		fmt.Print(got)
 	}
 
-	// if err := s1.sanityCheck(); err != nil {
-	// 	t.Fatal(err)
-	// }
-
 	if err := snew.sanityCheck(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func query(s *SummaryPtrListImpl, q float64) string {
+func TestSummaryPtrListImpl_Combine_compareToNaiveImpl(t *testing.T) {
+	s1Inputs, err := readCombineTestData()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const epsilon = 0.001
+	s1 := NewSummaryPtrListImpl(epsilon)
+	s1Naive := &SummaryNaiveImpl{}
+	for _, v := range s1Inputs {
+		s1.InsertValue(v)
+		s1Naive.InsertValue(v)
+	}
+
+	s2 := NewSummaryPtrListImpl(epsilon)
+	s2Naive := &SummaryNaiveImpl{}
+	for i := 0; i < 1000; i++ {
+		s2.InsertValue(111)
+		s1Naive.InsertValue(111)
+	}
+
+	snew, err := s1.Combine(s2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snewNaive := s1Naive.Combine(s2Naive)
+
+	qs := []float64{.02, .1, .25, .5, .75, .82, .88, .86, .99}
+	got := queryMulti(snew, qs)
+	want := queryMulti(snewNaive, qs)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("result mismatch (-want +got):\n%s", diff)
+	}
+}
+
+type queryer interface {
+	Query(q float64) uint64
+}
+
+func query(s queryer, q float64) string {
 	v := s.Query(q)
 	return fmt.Sprintf("queried: %.02f, found: %d\n", q, v)
+}
+
+func queryMulti(s queryer, qs []float64) string {
+	var b strings.Builder
+	for _, q := range qs {
+		b.WriteString(query(s, q))
+	}
+	return b.String()
 }

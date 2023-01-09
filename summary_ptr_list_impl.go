@@ -11,40 +11,40 @@ type SummaryPtrListImpl struct {
 	epsilon    float64
 	alloced    uint64
 	maxAlloced uint64
-	head       tuple
-	freelist   *tuple
+	head       tuplePtrListImpl
+	freelist   *tuplePtrListImpl
 }
 
-type tuple struct {
+type tuplePtrListImpl struct {
 	value uint64
 	g     float64
 	delta uint64
-	prev  *tuple
-	next  *tuple
+	prev  *tuplePtrListImpl
+	next  *tuplePtrListImpl
 }
 
-func (t *tuple) listEmpty() bool {
+func (t *tuplePtrListImpl) listEmpty() bool {
 	return t.next == t
 }
 
-func (t *tuple) listInit() {
+func (t *tuplePtrListImpl) listInit() {
 	t.next = t
 	t.prev = t
 }
 
-func (t *tuple) listDel() {
+func (t *tuplePtrListImpl) listDel() {
 	t.next.prev = t.prev
 	t.prev.next = t.next
 }
 
-func (t *tuple) listAddHeadTo(l *tuple) {
+func (t *tuplePtrListImpl) listAddHeadTo(l *tuplePtrListImpl) {
 	t.next = l.next
 	t.next.prev = t
 	l.next = t
 	t.prev = l
 }
 
-func (t *tuple) listAddTailTo(l *tuple) {
+func (t *tuplePtrListImpl) listAddTailTo(l *tuplePtrListImpl) {
 	t.listAddHeadTo(l.prev)
 }
 
@@ -66,7 +66,7 @@ func ullog2(n uint64) uint64 {
 	return uint64(ullog2Table[(n*0x03f6eaf2cd271461)>>58])
 }
 
-func NewSummary(epsilon float64) *SummaryPtrListImpl {
+func NewSummaryPtrListImpl(epsilon float64) *SummaryPtrListImpl {
 	s := &SummaryPtrListImpl{}
 	s.Init(epsilon)
 	return s
@@ -75,6 +75,19 @@ func NewSummary(epsilon float64) *SummaryPtrListImpl {
 func (s *SummaryPtrListImpl) Init(epsilon float64) {
 	s.head.listInit()
 	s.epsilon = epsilon
+}
+
+func (s *SummaryPtrListImpl) Rank(value uint64) uint64 {
+	nrElems := uint64(0)
+	cur := s.head.next
+	for cur != &s.head {
+		if cur.value >= value {
+			break
+		}
+		nrElems += uint64(cur.g)
+		cur = cur.next
+	}
+	return nrElems + 1
 }
 
 func (s *SummaryPtrListImpl) sanityCheck() error {
@@ -104,7 +117,7 @@ func (s *SummaryPtrListImpl) sanityCheck() error {
 	return nil
 }
 
-func (s *SummaryPtrListImpl) allocTuple() *tuple {
+func (s *SummaryPtrListImpl) allocTuple() *tuplePtrListImpl {
 	s.alloced++
 	if s.alloced > s.maxAlloced {
 		s.maxAlloced = s.alloced
@@ -115,10 +128,10 @@ func (s *SummaryPtrListImpl) allocTuple() *tuple {
 		s.freelist = s.freelist.next
 		return ret
 	}
-	return &tuple{}
+	return &tuplePtrListImpl{}
 }
 
-func (s *SummaryPtrListImpl) freeTuple(t *tuple) {
+func (s *SummaryPtrListImpl) freeTuple(t *tuplePtrListImpl) {
 	s.alloced--
 
 	t.next = s.freelist
@@ -261,7 +274,7 @@ func (s *SummaryPtrListImpl) Combine(s2 *SummaryPtrListImpl) (*SummaryPtrListImp
 		return nil, errors.New("epsilon must be equal")
 	}
 
-	snew := NewSummary(s.epsilon)
+	snew := NewSummaryPtrListImpl(s.epsilon)
 	cur1 := s.head.next
 	cur2 := s2.head.next
 	for cur1 != &s.head && cur2 != &s2.head {
