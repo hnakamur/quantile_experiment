@@ -56,9 +56,11 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 	}
 
 	rank := p*float64(s.n-1) + 1
-	margin := math.Ceil(s.epsilon * float64(s.n))
-	log.Printf("Quantile, p=%g, n=%d, tn=%d, rank=%g, margin=%g, rank-margin=%g, rank+margin=%g",
-		p, s.n, len(s.tuples), rank, margin, rank-margin, rank+margin)
+	margin := int(math.Ceil(s.epsilon * float64(s.n)))
+	rankMinusMargin := int(rank) - margin
+	rankPlusMargin := int(rank) + margin
+	log.Printf("Quantile, p=%g, n=%d, tn=%d, rank=%g, margin=%d, rank-margin=%d, rank+margin=%d",
+		p, s.n, len(s.tuples), rank, margin, rankMinusMargin, rankPlusMargin)
 	bestIndex := -1
 	bestDist := math.MaxFloat64
 	rMin := 0
@@ -66,8 +68,8 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 		t := &s.tuples[i]
 		rMin += t.gap
 		rMax := rMin + t.delta
-		log.Printf("Quantile, i=%d, rMin=%d, rMax=%d", i, rMin, rMax)
-		if rank-margin <= float64(rMin) && float64(rMax) <= rank+margin {
+		// log.Printf("Quantile, i=%d, rMin=%d, rMax=%d", i, rMin, rMax)
+		if rankMinusMargin <= rMin && rMax <= rankPlusMargin {
 			currentDist := math.Abs(rank - float64(rMin+rMax)/2)
 			if currentDist < bestDist {
 				bestDist = currentDist
