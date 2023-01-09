@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"math"
 	"sort"
 )
@@ -27,7 +28,7 @@ func NewSummary(epsilon float64) *Summary {
 }
 
 func (s *Summary) Add(v float64) {
-	i := sort.Search(s.n, func(i int) bool { return s.tuples[i].value >= v })
+	i := sort.Search(len(s.tuples), func(i int) bool { return s.tuples[i].value >= v })
 	delta := 0
 	if i > 0 && i < len(s.tuples) {
 		delta = int(math.Floor(2 * s.epsilon * float64(s.n)))
@@ -42,6 +43,7 @@ func (s *Summary) Add(v float64) {
 		s.tuples = append(s.tuples, t)
 	}
 	s.n++
+	log.Printf("Add v=%g, n=%d, tn=%d, i=%d, t=%+v", v, s.n, len(s.tuples), i, t)
 
 	if s.n%s.compressingInterval == 0 {
 		s.compress()
@@ -53,8 +55,10 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 		return 0, errors.New("no value added")
 	}
 
-	rank := p*float64(s.n-1) + 1
+	rank := p*float64(s.n) + 1
 	margin := math.Ceil(s.epsilon * float64(s.n))
+	log.Printf("Quantile, p=%g, n=%d, tn=%d, rank=%g, margin=%g, rank-margin=%g, rank+margin=%g",
+		p, s.n, len(s.tuples), rank, margin, rank-margin, rank+margin)
 	bestIndex := -1
 	bestDist := math.MaxFloat64
 	rMin := 0
@@ -62,6 +66,7 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 		t := &s.tuples[i]
 		rMin += t.gap
 		rMax := rMin + t.delta
+		log.Printf("Quantile, i=%d, rMin=%d, rMax=%d", i, rMin, rMax)
 		if rank-margin <= float64(rMin) && float64(rMax) <= rank+margin {
 			currentDist := math.Abs(rank - float64(rMin+rMax)/2)
 			if currentDist < bestDist {
@@ -77,18 +82,20 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 }
 
 func (s *Summary) compress() {
-	threshold := int(math.Floor(2 * s.epsilon * float64(s.n)))
 	for i := len(s.tuples) - 2; i >= 1; i-- {
-		for i < len(s.tuples)-1 && s.deleteIfNeeded(i, threshold) {
+		for i < len(s.tuples)-1 && s.deleteIfNeeded(i) {
 		}
 	}
+	log.Printf("compress n=%d, tn=%d", s.n, len(s.tuples))
 }
 
-func (s *Summary) deleteIfNeeded(i int, threshold int) bool {
+func (s *Summary) deleteIfNeeded(i int) bool {
 	t1, t2 := &s.tuples[i], &s.tuples[i+1]
+	threshold := int(math.Floor(2 * s.epsilon * float64(s.n)))
 	if t1.delta >= t2.delta && t1.gap+t2.gap+t2.delta < threshold {
 		copy(s.tuples[i:], s.tuples[i+1:])
 		s.tuples = s.tuples[:len(s.tuples)-1]
+		return true
 	}
 	return false
 }
