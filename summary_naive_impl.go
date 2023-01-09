@@ -1,19 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"errors"
-	"fmt"
-	"io"
-	"os"
 	"sort"
 )
 
 type SummaryNaiveImpl struct {
-	values []uint64
+	values []float64
 }
 
-func (s *SummaryNaiveImpl) InsertValue(value uint64) {
+func (s *SummaryNaiveImpl) Add(value float64) {
 	i := sort.Search(len(s.values), func(i int) bool {
 		return s.values[i] >= value
 	})
@@ -26,27 +22,27 @@ func (s *SummaryNaiveImpl) InsertValue(value uint64) {
 	s.values = append(s.values, value)
 }
 
-func (s *SummaryNaiveImpl) Query(q float64) uint64 {
+func (s *SummaryNaiveImpl) Quantile(q float64) (float64, error) {
 	if len(s.values) == 0 {
-		return 0
+		return 0, errors.New("no value added")
 	}
 
 	i := int(float64(len(s.values)) * q)
 	if i < 0 || i >= len(s.values) {
-		panic("q value must be between 0 and 1")
+		return 0, errors.New("quantile out of range")
 	}
-	return s.values[i]
+	return s.values[i], nil
 }
 
-func (s *SummaryNaiveImpl) Rank(value uint64) uint64 {
+func (s *SummaryNaiveImpl) Rank(value float64) int {
 	i := sort.Search(len(s.values), func(i int) bool {
 		return s.values[i] >= value
 	})
-	return uint64(i) + 1
+	return i + 1
 }
 
 func (s *SummaryNaiveImpl) Combine(s2 *SummaryNaiveImpl) *SummaryNaiveImpl {
-	values := make([]uint64, 0, len(s.values)+len(s2.values))
+	values := make([]float64, 0, len(s.values)+len(s2.values))
 	var i, j int
 	for i < len(s.values) && j < len(s2.values) {
 		if s.values[i] < s2.values[j] {
@@ -60,43 +56,4 @@ func (s *SummaryNaiveImpl) Combine(s2 *SummaryNaiveImpl) *SummaryNaiveImpl {
 	values = append(values, s.values[i:]...)
 	values = append(values, s2.values[j:]...)
 	return &SummaryNaiveImpl{values: values}
-
-}
-
-func (s *SummaryNaiveImpl) sanityCheck() error {
-	for i := 0; i < len(s.values)-1; i++ {
-		if s.values[i] > s.values[i+1] {
-			return errors.New("error: s.values[i] > s.values[i+1]")
-		}
-	}
-	return nil
-}
-
-func (s *SummaryNaiveImpl) writeTo(w io.Writer) error {
-	for _, v := range s.values {
-		if _, err := fmt.Fprintf(w, "%d\n", v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *SummaryNaiveImpl) writeToFile(filename string) error {
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	bw := bufio.NewWriter(file)
-	if err := s.writeTo(bw); err != nil {
-		return err
-	}
-	if err := bw.Flush(); err != nil {
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		return err
-	}
-	return nil
 }
