@@ -53,7 +53,7 @@ func (s *Summary) Quantile(p float64) (float64, error) {
 		return 0, errors.New("no value added")
 	}
 
-	rank := p*float64(s.n-1) + 1
+	rank := p*float64(s.n) + 1
 	margin := int(math.Ceil(s.epsilon * float64(s.n)))
 	rankMinusMargin := int(rank) - margin
 	rankPlusMargin := int(rank) + margin

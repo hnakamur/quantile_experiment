@@ -3,6 +3,8 @@ package main
 import (
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -71,12 +73,12 @@ func TestSummary_CompareToNaive(t *testing.T) {
 			}
 			if got, want := v, vRef; got != want {
 				gotRank := sRef.Rank(v)
-				wantRank := p*float64(len(ts.inputs)) + 1
-				en := epsilon * float64(len(ts.inputs))
-				wantRankMin := int(wantRank - en)
-				wantRankMax := int(math.Ceil(wantRank + en))
+				wantRank := int(p*float64(len(ts.inputs)) + 1)
+				margin := int(math.Ceil(epsilon * float64(len(ts.inputs))))
+				wantRankMin := wantRank - margin
+				wantRankMax := wantRank + margin
 				if gotRank < wantRankMin || gotRank > wantRankMax {
-					t.Errorf("result mismatch and rank out of range, p=%g, got=%g, want=%g, gotRank=%d, wantRank=%g, wantRankMin=%d, wantRankMax=%d",
+					t.Errorf("result mismatch and rank out of range, p=%g, got=%g, want=%g, gotRank=%d, wantRank=%d, wantRankMin=%d, wantRankMax=%d",
 						p, got, want, gotRank, wantRank, wantRankMin, wantRankMax)
 				}
 			}
@@ -88,7 +90,18 @@ func TestSummary_CompareToNaiveRandom(t *testing.T) {
 	const epsilon = 0.01
 	s := NewSummary(epsilon)
 	sRef := &SummaryNaiveImpl{}
-	seed := time.Now().UnixNano()
+
+	var seed int64
+	seedEnv := os.Getenv("SEED")
+	if seedEnv != "" {
+		var err error
+		seed, err = strconv.ParseInt(seedEnv, 10, 64)
+		if err != nil {
+			t.Fatalf("environment variable SEED must be an int64 value, got=%q", seedEnv)
+		}
+	} else {
+		seed = time.Now().UnixNano()
+	}
 	rnd := rand.New(rand.NewSource(seed))
 	n := 100 + rand.Intn(1000)
 	for i := 0; i < n; i++ {
@@ -109,12 +122,12 @@ func TestSummary_CompareToNaiveRandom(t *testing.T) {
 		}
 		if got, want := v, vRef; got != want {
 			gotRank := sRef.Rank(v)
-			wantRank := p*float64(n) + 1
-			en := epsilon * float64(n)
-			wantRankMin := int(wantRank - en)
-			wantRankMax := int(math.Ceil(wantRank + en))
+			wantRank := int(p*float64(n) + 1)
+			margin := int(math.Ceil(epsilon * float64(n)))
+			wantRankMin := wantRank - margin
+			wantRankMax := wantRank + margin
 			if gotRank < wantRankMin || gotRank > wantRankMax {
-				t.Errorf("result mismatch and rank out of range, seed=%d, p=%g, got=%g, want=%g, gotRank=%d, wantRank=%g, wantRankMin=%d, wantRankMax=%d",
+				t.Errorf("result mismatch and rank out of range, seed=%d, p=%g, got=%g, want=%g, gotRank=%d, wantRank=%d, wantRankMin=%d, wantRankMax=%d",
 					seed, p, got, want, gotRank, wantRank, wantRankMin, wantRankMax)
 			}
 		}
