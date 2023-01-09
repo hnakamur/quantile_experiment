@@ -22,7 +22,7 @@ func TestSummary(t *testing.T) {
 		{
 			inputs:  []float64{12, 6, 10, 1},
 			pValues: []float64{0, 0.25, 0.5, 0.75, 1},
-			want:    []float64{1, 6, 6, 10, 12},
+			want:    []float64{1, 6, 10, 12, 12},
 		},
 	}
 	for caseIdx, ts := range testCases {
